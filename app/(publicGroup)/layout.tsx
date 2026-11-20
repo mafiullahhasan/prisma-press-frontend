@@ -1,16 +1,15 @@
-import { Navbar } from '@/components/shared/navbar';
-import { getUserProfile } from '@/service/getUserProfile'
-import { connection } from 'next/server';
+import React from "react";
+import { Navbar } from "@/components/shared/navbar";
 
-
-export default async function PublicGroupLayout({children} : {children : React.ReactNode}) {
-    await connection();
-    const user = await getUserProfile();
-
+export default function PublicGroupLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <div>
-        <Navbar user={user}/>
-        {children}
+      <Navbar />
+      {children}
     </div>
-  )
+  );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -32,6 +32,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { logoutUser } from "@/service/logoutUser";
+import { getUserProfile } from "@/service/getUserProfile";
 
 // Interfaces
 export interface UserProfile {
@@ -72,10 +73,40 @@ const userMenuItems = [
   { title: "Settings", href: "/settings", icon: Settings },
 ];
 
-export function Navbar({ user }: NavbarProps) {
+export function Navbar({ user: initialUser }: NavbarProps) {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [user, setUser] = useState<User | null>(initialUser ?? null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadUser() {
+      try {
+        const profileData = await getUserProfile();
+        if (isMounted) {
+          startTransition(() => {
+            setUser(profileData ?? null);
+          });
+        }
+      } catch {
+        if (isMounted) {
+          startTransition(() => {
+            setUser(null);
+          });
+        }
+      }
+    }
+
+    if (initialUser === undefined) {
+      loadUser();
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [initialUser]);
 
   const getInitials = (name?: string) => {
     if (!name) return "U";
@@ -90,6 +121,7 @@ export function Navbar({ user }: NavbarProps) {
   const handleLogout = () => {
     startTransition(async () => {
       await logoutUser();
+      setUser(null);
     });
   };
 
@@ -203,9 +235,7 @@ export function Navbar({ user }: NavbarProps) {
             </DropdownMenu>
           ) : (
             <Button size="lg">
-              <Link href="/login">
-                Login
-              </Link>
+              <Link href="/login">Login</Link>
             </Button>
           )}
 
@@ -240,7 +270,7 @@ export function Navbar({ user }: NavbarProps) {
 
                 <nav
                   aria-label="Mobile Navigation"
-                  className="mt-6 flex flex-col gap-1.5"
+                  className="mt-4 flex flex-col gap-1"
                 >
                   {navItems.map((item) => {
                     const isActive =
@@ -253,7 +283,7 @@ export function Navbar({ user }: NavbarProps) {
                         onClick={() => setIsMobileMenuOpen(false)}
                         aria-current={isActive ? "page" : undefined}
                         className={cn(
-                          "rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
+                          "rounded-md px-3 py-2 text-sm font-medium transition-colors",
                           isActive
                             ? "bg-accent text-accent-foreground"
                             : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
@@ -264,55 +294,6 @@ export function Navbar({ user }: NavbarProps) {
                     );
                   })}
                 </nav>
-              </div>
-
-              {/* Mobile Drawer Footer: Conditional User Profile / Login Button */}
-              <div className="border-t pt-4">
-                {user ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3 px-2">
-                      <Avatar className="h-10 w-10 border">
-                        <AvatarImage
-                          src={user?.profile?.profilePhoto || ""}
-                          alt={user?.name || "User Avatar"}
-                        />
-                        <AvatarFallback>
-                          {getInitials(user?.name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex flex-col overflow-hidden">
-                        <span className="truncate text-sm font-medium">
-                          {user.name}
-                        </span>
-                        <span className="truncate text-xs text-muted-foreground">
-                          {user.email}
-                        </span>
-                      </div>
-                    </div>
-
-                    <Button
-                      variant="ghost"
-                      disabled={isPending}
-                      onClick={() => {
-                        setIsMobileMenuOpen(false);
-                        handleLogout();
-                      }}
-                      className="w-full justify-start text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    >
-                      <LogOut className="mr-2 h-4 w-4" />
-                      <span>{isPending ? "Logging out..." : "Log out"}</span>
-                    </Button>
-                  </div>
-                ) : (
-                  <Button
-                    className="w-full"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    <Link href="/login">
-                      Login
-                    </Link>
-                  </Button>
-                )}
               </div>
             </SheetContent>
           </Sheet>
