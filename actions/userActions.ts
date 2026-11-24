@@ -31,7 +31,13 @@ export async function updateProfileAction(
     body: { name, email, bio, profilePhoto },
   });
 
-  if (!res.success) return { success: false, message: res.message || "Update failed" };
+  if (!res.success) {
+    // Drop a freshly uploaded photo so it isn't left orphaned — but never when
+    // it overwrote the user's existing photo (same public_id).
+    const newId = publicIdFromUrl(profilePhoto);
+    if (newId && newId !== publicIdFromUrl(previousPhoto)) await deleteImage(profilePhoto);
+    return { success: false, message: res.message || "Update failed" };
+  }
 
   // New uploads overwrite profiles/<userId> in place. Delete only when the photo
   // was removed or now points to a different asset (e.g. an older upload).
