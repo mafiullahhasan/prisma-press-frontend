@@ -7,13 +7,16 @@ import {
   Menu,
   Command,
   User as UserIcon,
-  Settings,
   CreditCard,
   LogOut,
+  LayoutDashboard,
+  FileText,
+  MessageSquare,
+  ShieldCheck,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,149 +27,97 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { logoutUser } from "@/service/logoutUser";
 import { getUserProfile } from "@/service/getUserProfile";
+import { initials } from "@/lib/format";
+import type { User } from "@/lib/types";
 
-// Interfaces
-export interface UserProfile {
-  id: string;
-  profilePhoto: string | null;
-  bio: string | null;
-  createdAt: string;
-  updatedAt: string;
-  userId: string;
-}
+export type { User };
 
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  activeStatus: string;
-  role: string;
-  createdAt: string;
-  updatedAt: string;
-  profile?: UserProfile | null;
-}
-
-interface NavbarProps {
-  user?: User | null;
-}
-
-// Navigation items
-const navItems = [
-  { title: "Dashboard", href: "/dashboard" },
-  { title: "Projects", href: "/projects" },
-  { title: "Analytics", href: "/analytics" },
-  { title: "Docs", href: "/docs" },
+const publicNav = [
+  { title: "Home", href: "/" },
+  { title: "News", href: "/news" },
+  { title: "Premium", href: "/premium" },
 ];
 
 const userMenuItems = [
-  { title: "Profile", href: "/profile", icon: UserIcon },
-  { title: "Billing", href: "/billing", icon: CreditCard },
-  { title: "Settings", href: "/settings", icon: Settings },
+  { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { title: "Profile", href: "/dashboard/profile", icon: UserIcon },
+  { title: "My Posts", href: "/dashboard/my-posts", icon: FileText },
+  { title: "My Comments", href: "/dashboard/my-comments", icon: MessageSquare },
+  { title: "Subscription", href: "/dashboard/subscription", icon: CreditCard },
 ];
 
-export function Navbar({ user: initialUser }: NavbarProps) {
+export function Navbar() {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
-  const [user, setUser] = useState<User | null>(initialUser ?? null);
+  const [user, setUser] = useState<User | null>(null);
 
+  // Layouts persist across navigations, so re-check the session whenever the
+  // route changes (e.g. right after login/logout redirects).
   useEffect(() => {
     let isMounted = true;
-
-    async function loadUser() {
-      try {
-        const profileData = await getUserProfile();
-        if (isMounted) {
-          startTransition(() => {
-            setUser(profileData ?? null);
-          });
-        }
-      } catch {
-        if (isMounted) {
-          startTransition(() => {
-            setUser(null);
-          });
-        }
-      }
-    }
-
-    if (initialUser === undefined) {
-      loadUser();
-    }
-
+    getUserProfile()
+      .then((profile) => {
+        if (isMounted) setUser(profile ?? null);
+      })
+      .catch(() => {
+        if (isMounted) setUser(null);
+      });
     return () => {
       isMounted = false;
     };
-  }, [initialUser]);
+  }, [pathname]);
 
-  const getInitials = (name?: string) => {
-    if (!name) return "U";
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
+  const navItems = [
+    ...publicNav,
+    ...(user ? [{ title: "Dashboard", href: "/dashboard" }] : []),
+    ...(user?.role === "ADMIN" ? [{ title: "Admin", href: "/admin-dashboard" }] : []),
+  ];
+
+  const isActive = (href: string) =>
+    href === "/" ? pathname === "/" : pathname === href || pathname?.startsWith(`${href}/`);
 
   const handleLogout = () => {
     startTransition(async () => {
-      await logoutUser();
       setUser(null);
+      await logoutUser();
     });
   };
+
+  const linkClass = (href: string) =>
+    cn(
+      "rounded-md px-3 py-2 text-sm font-medium transition-colors",
+      isActive(href)
+        ? "bg-accent text-accent-foreground"
+        : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+    );
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-md">
       <div className="container mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        {/* Left Side: Logo & Brand */}
-        <div className="flex items-center gap-6 lg:gap-8">
-          <Link
-            href="/"
-            className="flex items-center gap-2.5 font-semibold tracking-tight transition-opacity hover:opacity-90"
-          >
-            <span className="text-lg sm:text-2xl font-bold text-primary">
-              Prisma Press
-            </span>
-          </Link>
-        </div>
-
-        {/* Desktop Nav Links */}
-        <nav
-          aria-label="Main Navigation"
-          className="hidden md:flex items-center gap-1"
+        <Link
+          href="/"
+          className="flex items-center gap-2.5 font-semibold tracking-tight transition-opacity hover:opacity-90"
         >
-          {navItems.map((item) => {
-            const isActive =
-              pathname === item.href || pathname?.startsWith(`${item.href}/`);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                aria-current={isActive ? "page" : undefined}
-                className={cn(
-                  "rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
-                )}
-              >
-                {item.title}
-              </Link>
-            );
-          })}
+          <span className="font-heading text-lg font-bold text-primary sm:text-2xl">Prisma Press</span>
+        </Link>
+
+        <nav aria-label="Main Navigation" className="hidden items-center gap-1 md:flex">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={isActive(item.href) ? "page" : undefined}
+              className={linkClass(item.href)}
+            >
+              {item.title}
+            </Link>
+          ))}
         </nav>
 
-        {/* Right Side: Conditional User Dropdown / Login Button & Mobile Menu */}
         <div className="flex items-center gap-2 sm:gap-3">
           {user ? (
             <DropdownMenu>
@@ -175,15 +126,11 @@ export function Navbar({ user: initialUser }: NavbarProps) {
                   <Button
                     variant="ghost"
                     className="flex h-10 w-10 items-center gap-2 rounded-full hover:bg-accent"
+                    aria-label="Open user menu"
                   >
                     <Avatar className="h-8 w-8 border">
-                      <AvatarImage
-                        src={user?.profile?.profilePhoto || ""}
-                        alt={user?.name || "User Avatar"}
-                      />
-                      <AvatarFallback className="text-xs">
-                        {getInitials(user?.name)}
-                      </AvatarFallback>
+                      <AvatarImage src={user.profile?.profilePhoto || ""} alt={user.name} />
+                      <AvatarFallback className="text-xs">{initials(user.name)}</AvatarFallback>
                     </Avatar>
                   </Button>
                 }
@@ -193,12 +140,8 @@ export function Navbar({ user: initialUser }: NavbarProps) {
                 <DropdownMenuGroup>
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">
-                        {user.name}
-                      </p>
-                      <p className="text-xs leading-none text-muted-foreground">
-                        {user.email}
-                      </p>
+                      <p className="text-sm font-medium leading-none">{user.name}</p>
+                      <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
                     </div>
                   </DropdownMenuLabel>
                 </DropdownMenuGroup>
@@ -210,10 +153,7 @@ export function Navbar({ user: initialUser }: NavbarProps) {
                       <DropdownMenuItem
                         key={item.href}
                         render={
-                          <Link
-                            href={item.href}
-                            className="flex w-full cursor-pointer items-center"
-                          >
+                          <Link href={item.href} className="flex w-full cursor-pointer items-center">
                             <Icon className="mr-2 h-4 w-4 text-muted-foreground" />
                             <span>{item.title}</span>
                           </Link>
@@ -221,6 +161,16 @@ export function Navbar({ user: initialUser }: NavbarProps) {
                       />
                     );
                   })}
+                  {user.role === "ADMIN" && (
+                    <DropdownMenuItem
+                      render={
+                        <Link href="/admin-dashboard" className="flex w-full cursor-pointer items-center">
+                          <ShieldCheck className="mr-2 h-4 w-4 text-muted-foreground" />
+                          <span>Admin Dashboard</span>
+                        </Link>
+                      }
+                    />
+                  )}
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
@@ -234,30 +184,26 @@ export function Navbar({ user: initialUser }: NavbarProps) {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <Button size="lg">
-              <Link href="/login">Login</Link>
-            </Button>
+            <div className="hidden items-center gap-2 sm:flex">
+              <Link href="/register" className={buttonVariants({ variant: "ghost" })}>
+                Register
+              </Link>
+              <Link href="/login" className={buttonVariants()}>
+                Login
+              </Link>
+            </div>
           )}
 
-          {/* Mobile Hamburger Menu */}
           <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
             <SheetTrigger
               render={
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="md:hidden"
-                  aria-label="Toggle navigation menu"
-                >
+                <Button variant="ghost" size="icon" className="md:hidden" aria-label="Toggle navigation menu">
                   <Menu className="h-5 w-5" />
                 </Button>
               }
             />
 
-            <SheetContent
-              side="right"
-              className="flex w-72 flex-col justify-between sm:w-80"
-            >
+            <SheetContent side="right" className="flex w-72 flex-col justify-between sm:w-80">
               <div>
                 <SheetHeader className="border-b pb-4 text-left">
                   <SheetTitle className="flex items-center gap-2.5">
@@ -268,33 +214,39 @@ export function Navbar({ user: initialUser }: NavbarProps) {
                   </SheetTitle>
                 </SheetHeader>
 
-                <nav
-                  aria-label="Mobile Navigation"
-                  className="mt-4 flex flex-col gap-1"
-                >
-                  {navItems.map((item) => {
-                    const isActive =
-                      pathname === item.href ||
-                      pathname?.startsWith(`${item.href}/`);
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        onClick={() => setIsMobileMenuOpen(false)}
-                        aria-current={isActive ? "page" : undefined}
-                        className={cn(
-                          "rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                          isActive
-                            ? "bg-accent text-accent-foreground"
-                            : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
-                        )}
-                      >
-                        {item.title}
-                      </Link>
-                    );
-                  })}
+                <nav aria-label="Mobile Navigation" className="mt-4 flex flex-col gap-1 px-4">
+                  {navItems.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      aria-current={isActive(item.href) ? "page" : undefined}
+                      className={linkClass(item.href)}
+                    >
+                      {item.title}
+                    </Link>
+                  ))}
                 </nav>
               </div>
+
+              {!user && (
+                <div className="flex flex-col gap-2 p-4">
+                  <Link
+                    href="/login"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={buttonVariants({ className: "w-full" })}
+                  >
+                    Login
+                  </Link>
+                  <Link
+                    href="/register"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={buttonVariants({ variant: "outline", className: "w-full" })}
+                  >
+                    Register
+                  </Link>
+                </div>
+              )}
             </SheetContent>
           </Sheet>
         </div>

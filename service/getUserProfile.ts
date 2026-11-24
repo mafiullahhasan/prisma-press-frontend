@@ -1,27 +1,9 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { getCurrentUser } from "@/lib/data";
+import type { User } from "@/lib/types";
 
-export const getUserProfile = async () => {
-  const cookieStore = await cookies();
-  const accessToken = cookieStore.get("accessToken")?.value;
-
-  try {
-    const res = await fetch(`${process.env.BACKEND_API_URL}/api/users/me`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      cache: "force-cache",
-      next: { 
-        revalidate: 60 * 60 * 24 // 1day
-       }, 
-    });
-    const { data } = await res.json();
-    return data;
-  } catch (error) {
-    console.error("Error fetching user profile:", error);
-    throw error;
-  }
+// Called from the client Navbar. Never cached: the response is per-user.
+export const getUserProfile = async (): Promise<User | null> => {
+  return getCurrentUser();
 };

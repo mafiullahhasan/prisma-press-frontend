@@ -1,7 +1,6 @@
-import React from 'react'
+import { redirect } from "next/navigation";
 
+// Authors use the shared user dashboard (posts, comments, profile, subscription).
 export default function AuthorDashboardPage() {
-  return (
-    <div>AuthorDashboardPage</div>
-  )
+  redirect("/dashboard");
 }

@@ -127,3 +127,10 @@
     @apply font-sans;
     }
 }
+/* Horizontal scrollers (mobile tab bars) without a visible scrollbar */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
